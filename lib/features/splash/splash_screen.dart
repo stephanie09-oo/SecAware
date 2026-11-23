@@ -1,14 +1,33 @@
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../authentication/presentation/cubit/auth_cubit.dart';
+import '../authentication/presentation/cubit/auth_state.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/app_dimensions.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AuthCubit>().checkSession();
+      }
+    });
+  }
+
   static const double _topPadding = 30;
   static const double _navbarSpacing = 40;
   static const double _labelSpacing = 30;
@@ -22,6 +41,48 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated) {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+        }
+      },
+      builder: (context, state) {
+        if (state is AuthInitial || state is AuthSessionChecking ||
+            state is AuthAuthenticated) {
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (state is AuthSessionError) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(state.message, textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.white)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.read<AuthCubit>().checkSession(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        return _buildLandingPage(context);
+      },
+    );
+  }
+
+  Widget _buildLandingPage(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Container(
